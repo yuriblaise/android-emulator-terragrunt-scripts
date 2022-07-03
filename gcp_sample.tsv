@@ -1,0 +1,3 @@
+cpus	ram	provider	kvm_on	id	avd_props
+4	16	gcp	True	device1	"hw.lcd.density=440,hw.lcd.height=1920,hw.lcd.width=1080"
+4	16	gcp	True	device2	"hw.lcd.density=440,hw.lcd.height=1920,hw.lcd.width=1080"
