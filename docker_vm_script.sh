@@ -71,16 +71,16 @@ save_snapshot() {
     default_id=$(get_docker_id)
     echo "Connected to container, saving snapshot"
     docker exec $default_id /android/sdk/platform-tools/adb emu avd snapshot save container_snapshot
-    # For downloading snapshots: docker exec $default_id /android/sdk/platform-tools/adb emu avd snapshot pull container_snapshot ~/container_snapshots
+    docker exec $default_id /android/sdk/platform-tools/adb emu avd snapshot pull container_snapshot /home/container_snapshot
 }
 
 load_snapshot () {
     device_serial=${1:-$device_serial}
     default_id=$(get_docker_id)
     echo "Connected to container, loading snapshot"
+    docker exec $default_id /android/sdk/platform-tools/adb emu avd snapshot push container_snapshot /home/container_snapshot
     docker exec $default_id /android/sdk/platform-tools/adb emu avd snapshot load container_snapshot
-    # For selecting snapshots: docker exec $(~/vm_scripts/docker_vm_script.sh get_docker_id) /android/sdk/platform-tools/adb emu avd snapshot list
-    # For downloading snapshots: docker exec $(~/vm_scripts/docker_vm_script.sh get_docker_id) /android/sdk/platform-tools/adb emu avd snapshot push container_snapshot ~/container_snapshots
+    docker exec $default_id /android/sdk/platform-tools/adb emu avd snapshot list
 }
 
 check_emu_idle () {
