@@ -1,7 +1,7 @@
 #All subdirectories except templates
 /*/
-!templates/*/*
-!templates/*
+!**/templates/*/*
+!**/templates/*
 # Local .terraform directories
 **/.terraform/*
 

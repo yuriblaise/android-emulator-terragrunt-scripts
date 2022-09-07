@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# pass actual csv functions through
-# get instance_name from find_instance_name.sh
+account_name=$3
+max_instance_count=$4
+
 defaults=("instance_type cpus ram provider kvm_on gpu_sku launch_command avd_props avd_config results_dir id")
 delimiter=${2:-,}
 
@@ -35,6 +36,20 @@ get_col_index() {
             break
         fi
     done
+}
+start_time=$(date +"%Y-%m-%d %H:%M:%S")
+get_image_count() {
+    IFS=$'\n'
+    n=0
+    repo_dates=$(docker-hub repos --orgname blaiseyuri | awk -F '|' '{ print $6 }' | tail -n +8| date +"%Y-%m-%d %H:%M:%S" -f -)
+    repo_dates=( $repo_dates )
+    for i in "${repo_dates[@]}";
+    do
+        if [ $(($(date -d "$i" +%s))) -gt $(($(date -d "$start_time" +%s))) ]; then
+            n=$(($n+1))
+        fi
+    done
+    echo $n
 }
 
 #Set default values
@@ -75,12 +90,25 @@ do
     settings["$i"]=$(get_col_index $i ${headerArr[@]})
 done
 
+if ! command -v gcloud &> /dev/null
+then
+    credentials_path=$(cat ./templates/gcp/*.tfvars | grep "gcp_credentials" | cut -d "=" -f2 | tr -d '"')
+    echo "Installing gcloud cli"
+    docker pull gcr.io/google.com/cloudsdktool/google-cloud-cli:latest
+    docker run -ti --name gcloud-config gcr.io/google.com/cloudsdktool/google-cloud-cli gcloud auth login --cred-file="$credentials_path"
+    alias gcloud="docker run -ti --name gcloud-config gcr.io/google.com/cloudsdktool/google-cloud-cli gcloud"                                                                                                                                       
+fi
 
+if ! command -v docker-hub &> /dev/null
+then
+    echo "Installing docker-hub cli"
+    pip install docker-hub
+fi
 
-# Create and launch a terragrunt configuration for each row
-# the settings used for each configuration will be saved in the
-# Terraform folder for each instance as settings.txt 
-# along with log files.
+current_instance_count=$(gcloud compute instances list --filter=status:RUNNING | wc -l)
+local_instance_count=$((1))
+local_image_count=$((0))
+starting_image_count=$(docker-hub repos --orgname $account_name | wc -l)
 
 for r in "${rows[@]}"
     do
@@ -91,7 +119,7 @@ for r in "${rows[@]}"
         provider_idx=${settings["provider"]}
         r_provider=${r[$provider_idx-1]}
         
-        #Print out instance and benchmark config values
+        # Print out instance and benchmark config values
         echo "Columns:" "${header[@]}"
         echo "ROW: $r"
         echo "PROVIDER: $r_provider"
@@ -179,12 +207,57 @@ for r in "${rows[@]}"
         if [[ -v addInstanceType ]]; then
             echo "instance_type = \"${instance_type}\"" >> ./"$results_dir"/"$tfvar_file"
         fi
-        cp -a ./"$var_file" ./"$results_dir"/
-        cp -a ./templates/$r_provider/. ./"$results_dir"/
-        cd ./"$results_dir" || exit
-        terragrunt init
-        # terragrunt plan -var-file=""$tfvar_file"" -auto-approve 2>&1 | tee terraform_logs.txt &
-        echo yes | terragrunt apply -var-file="$tfvar_file" 2>&1 | tee terraform_logs.txt &
-        cd ..
-    done
+        # image_count=$(($(docker-hub repos --orgname $account_name | wc -l)-$starting_image_count))
+        image_count=$(get_image_count $start_time)
+        echo "Image Count: $image_count"
+        max_jobs=$((image_count+max_instance_count))
+        echo "Starting Manager..."
+        echo "Start Time: $start_time"
+        echo "GCP_Instance_count: $current_instance_count"
+        echo "Local_instance_count: $local_instance_count"
+        echo "local_image_count: $local_image_count"
+        echo "Docker image_count: $max_jobs"
+        
+
+        while [ "$local_image_count" -ge  "$max_jobs" ] && [ "$local_image_count" -ge  $max_instance_count ]
+        do
+        :
+            echo "Max jobs count of $max_instance_count reached, waiting on next image..."
+            image_count=$(($(docker-hub repos --orgname $account_name | wc -l)-$starting_image_count))
+            local_image_count=image_count
+            max_jobs=$(($image_count+$max_instance_count))
+            sleep 60s
+        done
+
+            waiting=0;
+            while [ $waiting -eq 0 ]
+            do
+            :
+                current_instance_count=$(gcloud compute instances list --filter=status:RUNNING | wc -l)
+                if [ "$current_instance_count" -lt "$max_instance_count" ] 
+                then
+                    waiting=1;
+                    local_instance_count=$(($local_instance_count+1))
+                    local_image_count=$(($local_image_count+1))
+                    cp -a ./"$var_file" ./"$results_dir"/
+                    cp -a ./templates/$r_provider/. ./"$results_dir"/
+                    cd ./"$results_dir" || exit
+                    terragrunt init
+                    # terragrunt plan -var-file=""$tfvar_file"" -auto-approve 2>&1 | tee terraform_logs.txt &
+                    echo yes | terragrunt apply -var-file="$tfvar_file" 2>&1 | tee terraform_logs.txt &
+                    cd ..
+                    sleep 5s
+                else
+                    echo "Maximum Instance count reached waiting on available instances...."
+                    echo "GCP_instance_count: $current_instance_count"
+                    echo "Total_instance_count: $local_instance_count"
+                    echo "local_image_count: $local_image_count"
+                    echo "Docker image_count: $image_count"
+                    sleep 60s
+                fi
+            done
     
+done
+        
+
+
