@@ -1,0 +1,3 @@
+cpus	ram	provider	kvm_on	id	avd_props	image_regexp	container_name  
+4	16	gcp	true	deviceP	"hw.lcd.density=440,hw.lcd.height=1920,hw.lcd.width=1080"	"P.*x86_64"	"TEST_IMAGE_P_RUNNER"
+4	16	gcp	true	deviceQ	"hw.lcd.density=440,hw.lcd.height=1920,hw.lcd.width=1080"	"Q.*x86_64"	"TEST_IMAGE_Q_RUNNER"
