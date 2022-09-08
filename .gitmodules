@@ -1,0 +1,4 @@
+[submodule "templates"]
+	path = templates
+	url = https://github.com/yuriblaise/android-emulator-terraform-scripts.git
+	branch = templates
