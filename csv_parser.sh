@@ -180,6 +180,7 @@ for r in "${rows[@]}"
             echo "instance_type = \"${instance_type}\"" >> ./"$results_dir"/"$tfvar_file"
         fi
         cp -a ./"$var_file" ./"$results_dir"/
+        cp -a ./templates.hcl ./"$results_dir"/terragrunt.hcl
         cp -a ./templates/$r_provider/. ./"$results_dir"/
         cd ./"$results_dir" || exit
         terragrunt init

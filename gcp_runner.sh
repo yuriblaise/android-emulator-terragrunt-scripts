@@ -240,11 +240,12 @@ for r in "${rows[@]}"
                     local_instance_count=$(($local_instance_count+1))
                     local_image_count=$(($local_image_count+1))
                     cp -a ./"$var_file" ./"$results_dir"/
+                    cp -a ./templates.hcl ./"$results_dir"/terragrunt.hcl
                     cp -a ./templates/$r_provider/. ./"$results_dir"/
                     cd ./"$results_dir" || exit
                     terragrunt init
                     # terragrunt plan -var-file=""$tfvar_file"" -auto-approve 2>&1 | tee terraform_logs.txt &
-                    echo yes | terragrunt apply -var-file="$tfvar_file" 2>&1 | tee terraform_logs.txt &
+                    echo yes | terragrunt apply -var-file="$tfvar_file" -auto-approve 2>&1 | tee terraform_logs.txt &
                     cd ..
                     sleep 5s
                 else
